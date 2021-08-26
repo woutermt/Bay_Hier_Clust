@@ -35,10 +35,10 @@ import seaborn as sb
 
 ######## TEMP ARGS ########
 arg_input_file = 'processed_yeast_data_AL_1\linear_regression_expr_var4\expression_statsmodels_linreg_residuals_01.txt'
-arg_input_gene_filtering = '../RawData/processed_yeast_data_AL_1\linear_regression_expr_var4\p2p3_th10pct_gene_interactions.csv'
+# arg_input_gene_filtering = '../RawData/processed_yeast_data_AL_1\linear_regression_expr_var4\p2p3_th10pct_gene_interactions.csv'
 
 # # # Manual files for overlap validation
-# arg_input_gene_filtering = '../Results/input_file_prob_genes.csv'
+arg_input_gene_filtering = '../Results/input_file_prob_genes.csv'
 # manual_gene1 = "YLR264W"
 # manual_gene2 = "YLR273C"					# YLR326W (183), YLR273C (), YLR257W, YLR252W
 
@@ -55,12 +55,12 @@ arg_graph_type = 'hier'
 arg_date_today = date.today()
 
 arg_dendro = False
-arg_heatmap = False
+arg_heatmap = True
 arg_allow_correction_score = True
 arg_sort = "topological"                        # topological or bayes
 
-arg_filter_method ="prob"			        	# "prob", "rand", "std", "manual"
-arg_filt_thres = 0.99986 					        # std: 3.6 -- prob: 0.995 is 3709 unique / 0.999 is 1995 unique / 0.9995 is 296 unique / 0.9998 is 39 unique
+arg_filter_method ="manual"			        	# "prob", "rand", "std", "manual"
+arg_filt_thres = 0.9998				            # std: 3.6 -- prob: 0.995 is 3709 unique / 0.999 is 1995 unique / 0.9995 is 296 unique / 0.9998 is 39 unique
 arg_gamma_prior = [0.1, 0, 0.1, 0.1]  		    # Initialize Normal-Gamma prior lambda, mu, alpha, beta
 
 arg_thes_parent_link = 15
@@ -74,7 +74,7 @@ arg_plt_space_mult_y = 2
 arg_plt_label_rota = "45"
 arg_plt_label_y = -0.5
 
-arg_output_file = arg_output_path + arg_graph_type + '_' + str(arg_filt_thres) + '_MEGA_' + str(arg_decay) + '_' + str(arg_date_today) + '.' + arg_outfile_type
+arg_output_file = arg_output_path + arg_graph_type + '_' + arg_filter_method + '_threshold_' + str(arg_filt_thres) + '_decay_' + str(arg_decay) + '_' + str(arg_date_today) + '.' + arg_outfile_type
 ######## TEMP ARGS ########
 
 
@@ -490,7 +490,7 @@ def calc_score(graph, exp_list, n1, n2, gam_pri, allow_corr=True):
                     # Correct previous parent
                     prev_parent = graph.nodes[node]['parent']
                     graph.nodes[prev_parent[0]]['sum_bayes_score'] -= corr_score
-                    print(prev_parent[0], graph.nodes[prev_parent[0]]['sum_bayes_score'], corr_score, graph.nodes[prev_parent[0]]['sum_bayes_score']-corr_score)
+                    # print(prev_parent[0], graph.nodes[prev_parent[0]]['sum_bayes_score'], corr_score, graph.nodes[prev_parent[0]]['sum_bayes_score']-corr_score)
                     pre_par_exper_list = list(graph.nodes[prev_parent[0]]['experiment_data'][exp])
                     pre_par_exper_list[3] -= corr_score
                     graph.nodes[prev_parent[0]]['experiment_data'][exp] = pre_par_exper_list
@@ -608,24 +608,6 @@ def init_nodes(graph, g_data, g_list, e_list, gam_pri):
     return graph
 
 
-def standard_hierarchical_cluster(g_data, g_names):
-    print("hier cluster normal")
-    print(g_data.shape)
-    print(g_names.shape)
-
-    g_data = np.transpose(g_data)
-
-    hier_cluster = linkage(g_data, method='ward', metric='euclidean')
-    plt.figure()
-    plt.xlabel('Gene nodes')
-    plt.ylabel('Distance')
-    dendrogram(hier_cluster, labels=g_names)
-    # plt.show()
-
-    # stand_clust = fclusterdata(g_data, t=.10, criterion='inconsistent', metric='euclidean', depth=2, method='single', R=None)
-    # print(stand_clust)
-
-
 def dendro(g_data, path, date_today, dendro=False):
 
     # Dendrogram
@@ -677,7 +659,7 @@ def process_filter(expr_data, gene_list, filt_thres, file_genes, filter_method):
     if filter_method == "std":
         filter_condition = expr_data.std(axis=0) > filt_thres
 
-    # Ramdomly select a number of genes
+    # Randomly select a number of genes
     if filter_method == "rand":
         rand_list = []
         for i in range(50):
@@ -720,7 +702,7 @@ def read_data(input_path, input_file):
         input_path: File dir path
         input_file: File name
 
-    Returns:
+    Returns: Data as a raw numpy-data-matrix, the list of the gene names, the list of the experiments
     """
 
     # Getting data
@@ -757,9 +739,6 @@ def main():
     dendro(gene_data, arg_figure_path, arg_date_today, arg_dendro)
     heat(gene_data, gene_names, arg_figure_path, arg_date_today, arg_heatmap)
 
-    # Generate a regular hierarchically clustered graph
-    # standard_hierarchical_cluster(gene_data, gene_names)
-
     # Start score-based node combination and edge construction
     node_list = list(G.nodes)
     while not termination_condition:
@@ -784,7 +763,7 @@ def main():
     # Test acyclic
     print("Is directed acyclic:", nx.is_directed_acyclic_graph(G))
     print("Graph stats edges + nodes:", G.number_of_edges(), G.number_of_nodes())
-    print("GRAPH", list(G.nodes(data='bayes_score')))
+    print("GRAPH node Bayesian scores", list(G.nodes(data='bayes_score')))
 
     # Remove unused genes
     G = prune_graph(G)
